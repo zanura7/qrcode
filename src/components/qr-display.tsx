@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Download, Copy, Check } from "lucide-react";
+import { Download, Copy, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function QrDisplay({
@@ -14,6 +14,14 @@ export function QrDisplay({
 }) {
   const [dataUrl, setDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const isLocalUrl = (() => {
+    try {
+      const host = new URL(url).hostname;
+      return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+    } catch {
+      return false;
+    }
+  })();
 
   useEffect(() => {
     QRCode.toDataURL(url, {
@@ -62,6 +70,16 @@ export function QrDisplay({
       <div className="w-full break-all rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
         {url}
       </div>
+
+      {isLocalUrl && (
+        <div className="flex w-full gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <p>
+            This QR uses a local URL. Set NEXT_PUBLIC_APP_URL to your public
+            domain before downloading or printing.
+          </p>
+        </div>
+      )}
 
       <div className="flex w-full gap-2">
         <Button onClick={download} disabled={!dataUrl} className="flex-1">

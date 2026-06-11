@@ -2,11 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { generateShortCode } from "@/lib/utils";
-import type { QrType } from "@/lib/types";
+import {
+  CONTENT_QR_TYPES,
+  FILE_QR_TYPES,
+  QR_TYPES,
+  URL_QR_TYPES,
+  type QrType,
+} from "@/lib/types";
 
 export type ActionState = { error?: string };
+
+const QR_FILES_BUCKET = "qr-files";
+const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+const FILE_TYPE_EXTENSIONS: Partial<Record<QrType, string[]>> = {
+  pdf: [".pdf"],
+  audio: [".mp3", ".wav", ".m4a", ".aac", ".ogg"],
+  video: [".mp4", ".mov", ".webm", ".m4v"],
+  image: [".jpg", ".jpeg", ".png", ".webp", ".gif"],
+  pptx: [".ppt", ".pptx"],
+  excel: [".xls", ".xlsx", ".csv"],
+  png: [".png"],
+};
 
 async function uniqueShortCode(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -32,14 +51,124 @@ function parseForm(formData: FormData) {
     String(formData.get("whatsapp_number") || "").replace(/[^\d+]/g, "") || null;
   const whatsapp_message =
     String(formData.get("whatsapp_message") || "").trim() || null;
-  return { name, type, target_url, whatsapp_number, whatsapp_message };
+  const content_text = String(formData.get("content_text") || "").trim() || null;
+  const phone_number =
+    String(formData.get("phone_number") || "").replace(/[^\d+]/g, "") || null;
+  const email_address = String(formData.get("email_address") || "").trim() || null;
+  const email_subject = String(formData.get("email_subject") || "").trim() || null;
+  const email_body = String(formData.get("email_body") || "").trim() || null;
+  const wifi_ssid = String(formData.get("wifi_ssid") || "").trim() || null;
+  const wifi_password = String(formData.get("wifi_password") || "").trim() || null;
+  const wifi_encryption =
+    String(formData.get("wifi_encryption") || "").trim() || null;
+  const contact_name = String(formData.get("contact_name") || "").trim() || null;
+  const contact_phone =
+    String(formData.get("contact_phone") || "").replace(/[^\d+]/g, "") || null;
+  const contact_email = String(formData.get("contact_email") || "").trim() || null;
+  const contact_company =
+    String(formData.get("contact_company") || "").trim() || null;
+  const contact_url = String(formData.get("contact_url") || "").trim() || null;
+  const event_title = String(formData.get("event_title") || "").trim() || null;
+  const event_start = String(formData.get("event_start") || "").trim() || null;
+  const event_end = String(formData.get("event_end") || "").trim() || null;
+  const event_location =
+    String(formData.get("event_location") || "").trim() || null;
+
+  return {
+    name,
+    type,
+    target_url,
+    whatsapp_number,
+    whatsapp_message,
+    content_text,
+    phone_number,
+    email_address,
+    email_subject,
+    email_body,
+    wifi_ssid,
+    wifi_password,
+    wifi_encryption,
+    contact_name,
+    contact_phone,
+    contact_email,
+    contact_company,
+    contact_url,
+    event_title,
+    event_start,
+    event_end,
+    event_location,
+  };
 }
 
-function validate(input: ReturnType<typeof parseForm>): string | null {
+type QrInput = ReturnType<typeof parseForm>;
+
+function isUploadFile(value: FormDataEntryValue | null): value is File {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "arrayBuffer" in value &&
+    "name" in value &&
+    "size" in value &&
+    Number((value as File).size) > 0
+  );
+}
+
+function safeFileName(name: string): string {
+  const parts = name.split(".");
+  const ext = parts.length > 1 ? `.${parts.pop()}` : "";
+  const base = parts
+    .join(".")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${base || "file"}${ext.toLowerCase()}`;
+}
+
+function validateUploadType(type: QrType, fileName: string): string | null {
+  const allowed = FILE_TYPE_EXTENSIONS[type];
+  if (!allowed) return null;
+  const lower = fileName.toLowerCase();
+  return allowed.some((ext) => lower.endsWith(ext))
+    ? null
+    : `Uploaded file must match ${allowed.join(", ")}.`;
+}
+
+async function attachUploadedFile(
+  input: QrInput,
+  formData: FormData,
+): Promise<{ input: QrInput; error?: string }> {
+  if (!FILE_QR_TYPES.includes(input.type)) return { input };
+
+  const upload = formData.get("file_upload");
+  if (!isUploadFile(upload)) return { input };
+
+  if (upload.size > MAX_UPLOAD_SIZE) {
+    return { input, error: "Uploaded file must be 50 MB or smaller." };
+  }
+
+  const typeError = validateUploadType(input.type, upload.name);
+  if (typeError) return { input, error: typeError };
+
+  const admin = createAdminClient();
+  const path = `${input.type}/${crypto.randomUUID()}-${safeFileName(upload.name)}`;
+  const { error } = await admin.storage
+    .from(QR_FILES_BUCKET)
+    .upload(path, Buffer.from(await upload.arrayBuffer()), {
+      contentType: upload.type || "application/octet-stream",
+      upsert: false,
+    });
+
+  if (error) return { input, error: error.message };
+
+  const { data } = admin.storage.from(QR_FILES_BUCKET).getPublicUrl(path);
+  return { input: { ...input, target_url: data.publicUrl } };
+}
+
+function validate(input: QrInput): string | null {
   if (!input.name) return "Name is required.";
-  if (!["url", "whatsapp", "link_hub"].includes(input.type))
-    return "Invalid QR type.";
-  if (input.type === "url") {
+  if (!QR_TYPES.includes(input.type)) return "Invalid QR type.";
+  if (URL_QR_TYPES.includes(input.type)) {
     if (!input.target_url) return "Target URL is required.";
     try {
       new URL(input.target_url);
@@ -49,6 +178,20 @@ function validate(input: ReturnType<typeof parseForm>): string | null {
   }
   if (input.type === "whatsapp" && !input.whatsapp_number)
     return "WhatsApp number is required.";
+  if ((input.type === "phone" || input.type === "sms") && !input.phone_number)
+    return "Phone number is required.";
+  if (input.type === "email" && !input.email_address)
+    return "Email address is required.";
+  if (input.type === "text" && !input.content_text)
+    return "Text content is required.";
+  if (input.type === "wifi" && !input.wifi_ssid)
+    return "Wi-Fi network name is required.";
+  if (input.type === "vcard" && !input.contact_name)
+    return "Contact name is required.";
+  if (input.type === "calendar" && (!input.event_title || !input.event_start))
+    return "Event title and start time are required.";
+  if (CONTENT_QR_TYPES.includes(input.type) && input.target_url)
+    return "This QR type does not use a target URL.";
   return null;
 }
 
@@ -56,7 +199,9 @@ export async function createQr(
   _prev: ActionState | undefined,
   formData: FormData,
 ): Promise<ActionState> {
-  const input = parseForm(formData);
+  const uploaded = await attachUploadedFile(parseForm(formData), formData);
+  if (uploaded.error) return { error: uploaded.error };
+  const input = uploaded.input;
   const err = validate(input);
   if (err) return { error: err };
 
@@ -81,7 +226,9 @@ export async function updateQr(
   _prev: ActionState | undefined,
   formData: FormData,
 ): Promise<ActionState> {
-  const input = parseForm(formData);
+  const uploaded = await attachUploadedFile(parseForm(formData), formData);
+  if (uploaded.error) return { error: uploaded.error };
+  const input = uploaded.input;
   const err = validate(input);
   if (err) return { error: err };
 

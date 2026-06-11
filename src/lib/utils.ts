@@ -30,6 +30,26 @@ export function formatDate(value: string | Date | null | undefined): string {
   });
 }
 
-export function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+function stripTrailingSlash(value: string): string {
+  return value.replace(/\/$/, "");
+}
+
+function isLocalAppUrl(value: string): boolean {
+  try {
+    const host = new URL(value).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+  } catch {
+    return false;
+  }
+}
+
+export function appUrl(requestOrigin?: string): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL
+    ? stripTrailingSlash(process.env.NEXT_PUBLIC_APP_URL)
+    : "";
+  const origin = requestOrigin ? stripTrailingSlash(requestOrigin) : "";
+
+  if (configured && !isLocalAppUrl(configured)) return configured;
+  if (origin) return origin;
+  return configured || "http://localhost:3000";
 }

@@ -2,14 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logScan } from "@/lib/analytics";
 import { appUrl } from "@/lib/utils";
-import type { QrCode } from "@/lib/types";
+import { CONTENT_QR_TYPES, URL_QR_TYPES, type QrCode } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-function resolveTarget(qr: QrCode): string {
+function resolveTarget(qr: QrCode, origin: string): string {
+  const baseUrl = appUrl(origin);
   switch (qr.type) {
-    case "url":
-      return qr.target_url || appUrl();
     case "whatsapp": {
       const number = (qr.whatsapp_number || "").replace(/[^\d]/g, "");
       const base = `https://wa.me/${number}`;
@@ -17,10 +16,30 @@ function resolveTarget(qr: QrCode): string {
         ? `${base}?text=${encodeURIComponent(qr.whatsapp_message)}`
         : base;
     }
+    case "phone":
+      return `tel:${(qr.phone_number || "").replace(/[^\d+]/g, "")}`;
+    case "sms": {
+      const number = (qr.phone_number || "").replace(/[^\d+]/g, "");
+      const body = qr.content_text
+        ? `?body=${encodeURIComponent(qr.content_text)}`
+        : "";
+      return `sms:${number}${body}`;
+    }
+    case "email": {
+      const params = new URLSearchParams();
+      if (qr.email_subject) params.set("subject", qr.email_subject);
+      if (qr.email_body) params.set("body", qr.email_body);
+      const query = params.toString();
+      return `mailto:${qr.email_address || ""}${query ? `?${query}` : ""}`;
+    }
     case "link_hub":
-      return `${appUrl()}/hub/${qr.short_code}`;
+      return `${baseUrl}/hub/${qr.short_code}`;
     default:
-      return appUrl();
+      if (URL_QR_TYPES.includes(qr.type)) return qr.target_url || baseUrl;
+      if (CONTENT_QR_TYPES.includes(qr.type)) {
+        return `${baseUrl}/content/${qr.short_code}`;
+      }
+      return baseUrl;
   }
 }
 
@@ -50,6 +69,6 @@ export async function GET(
   // Record the scan before redirecting (serverless-safe).
   await logScan(qr.id, request.headers);
 
-  const target = resolveTarget(qr as QrCode);
+  const target = resolveTarget(qr as QrCode, request.nextUrl.origin);
   return NextResponse.redirect(target, { status: 302 });
 }

@@ -19,3 +19,14 @@ export function detectDevice(ua: string): string {
   if (/android/i.test(ua)) return "Tablet";
   return "Desktop";
 }
+
+export function detectOS(ua: string): string {
+  if (!ua) return "Unknown";
+  if (/windows phone/i.test(ua)) return "Windows Phone";
+  if (/windows nt/i.test(ua)) return "Windows";
+  if (/iphone|ipad|ipod/i.test(ua)) return "iOS";
+  if (/android/i.test(ua)) return "Android";
+  if (/mac os x|macintosh/i.test(ua)) return "macOS";
+  if (/linux/i.test(ua)) return "Linux";
+  return "Other";
+}

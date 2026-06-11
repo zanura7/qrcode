@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ScanLine, CalendarClock, Clock, Smartphone } from "lucide-react";
+import {
+  CalendarClock,
+  Clock,
+  MapPin,
+  MonitorCog,
+  ScanLine,
+  Smartphone,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
@@ -45,7 +52,7 @@ export default async function AnalyticsPage() {
 
   const { data: scans } = await supabase
     .from("qr_scans")
-    .select("qr_code_id, browser, device, scanned_at")
+    .select("qr_code_id, browser, device, os, country, region, city, scanned_at")
     .order("scanned_at", { ascending: false });
 
   const { data: qrCodes } = await supabase
@@ -60,6 +67,11 @@ export default async function AnalyticsPage() {
 
   const byDevice = tally(allScans, "device");
   const byBrowser = tally(allScans, "browser");
+  const byOs = tally(allScans, "os");
+  const byCountry = tally(allScans, "country");
+  const knownCountryCount = byCountry.filter(
+    (item) => item.label !== "Unknown",
+  ).length;
 
   // Per QR aggregation
   const qrMap = new Map(
@@ -97,6 +109,7 @@ export default async function AnalyticsPage() {
           value={perQr.size}
           icon={Smartphone}
         />
+        <StatCard title="Countries" value={knownCountryCount} icon={MapPin} />
         <StatCard
           title="Last Scan"
           value={lastScan ? formatDate(lastScan).split(",")[0] : "—"}
@@ -123,6 +136,26 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <BreakdownBars data={byBrowser} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">By Operating System</CardTitle>
+            <CardDescription>OS detected from each scan.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BreakdownBars data={byOs} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">By Location</CardTitle>
+            <CardDescription>Country from hosting/CDN headers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BreakdownBars data={byCountry} />
           </CardContent>
         </Card>
       </div>
@@ -168,6 +201,66 @@ export default async function AnalyticsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Recent Scan Log</CardTitle>
+          <CardDescription>
+            Latest scans with device, OS, browser, and location metadata.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {allScans.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No scans recorded yet.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>QR Code</TableHead>
+                  <TableHead>Device</TableHead>
+                  <TableHead>OS</TableHead>
+                  <TableHead>Browser</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Scanned At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allScans.slice(0, 50).map((scan, index) => {
+                  const location = [scan.city, scan.region, scan.country]
+                    .filter(Boolean)
+                    .join(", ");
+                  const qr = qrMap.get(scan.qr_code_id);
+
+                  return (
+                    <TableRow
+                      key={`${scan.qr_code_id}-${scan.scanned_at}-${index}`}
+                    >
+                      <TableCell className="font-medium">
+                        {qr ? (
+                          <Link href={`/qr/${qr.id}`} className="hover:underline">
+                            {qr.name}
+                          </Link>
+                        ) : (
+                          "â€”"
+                        )}
+                      </TableCell>
+                      <TableCell>{scan.device ?? "Unknown"}</TableCell>
+                      <TableCell>{scan.os ?? "Unknown"}</TableCell>
+                      <TableCell>{scan.browser ?? "Unknown"}</TableCell>
+                      <TableCell>{location || "Unknown"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(scan.scanned_at)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

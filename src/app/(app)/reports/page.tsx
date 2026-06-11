@@ -28,7 +28,7 @@ import {
 } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Reports · QR Manager" };
+export const metadata = { title: "Reports - QR Manager" };
 
 export default async function ReportsPage({
   searchParams,
@@ -43,7 +43,7 @@ export default async function ReportsPage({
 
   const { data: scans } = await supabase
     .from("qr_scans")
-    .select("qr_code_id, scanned_at, browser, device")
+    .select("qr_code_id, scanned_at, browser, device, os, country, region, city")
     .gte("scanned_at", start)
     .order("scanned_at", { ascending: false });
 
@@ -54,24 +54,23 @@ export default async function ReportsPage({
   const allScans = scans ?? [];
   const qrMap = new Map((qrCodes ?? []).map((q) => [q.id, q]));
 
-  // Group by QR
   const perQr = new Map<string, number>();
-  allScans.forEach((s) =>
-    perQr.set(s.qr_code_id, (perQr.get(s.qr_code_id) ?? 0) + 1),
+  allScans.forEach((scan) =>
+    perQr.set(scan.qr_code_id, (perQr.get(scan.qr_code_id) ?? 0) + 1),
   );
 
   const rows = Array.from(perQr, ([id, count]) => ({
     qr: qrMap.get(id),
     count,
   }))
-    .filter((r) => r.qr)
+    .filter((row) => row.qr)
     .sort((a, b) => b.count - a.count);
 
   return (
     <div>
       <PageHeader
         title="Reports"
-        description={`Scan report — ${rangeLabel(range)}.`}
+        description={`Scan report - ${rangeLabel(range)}.`}
       >
         <Button asChild>
           <a href={`/api/reports/export?range=${range}`}>
@@ -82,14 +81,16 @@ export default async function ReportsPage({
       </PageHeader>
 
       <div className="mb-6 flex gap-2">
-        {REPORT_RANGES.map((r) => (
+        {REPORT_RANGES.map((reportRange) => (
           <Button
-            key={r.value}
+            key={reportRange.value}
             asChild
-            variant={r.value === range ? "default" : "outline"}
+            variant={reportRange.value === range ? "default" : "outline"}
             size="sm"
           >
-            <Link href={`/reports?range=${r.value}`}>{r.label}</Link>
+            <Link href={`/reports?range=${reportRange.value}`}>
+              {reportRange.label}
+            </Link>
           </Button>
         ))}
       </div>
@@ -136,17 +137,19 @@ export default async function ReportsPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.qr!.id}>
-                    <TableCell className="font-medium">{r.qr!.name}</TableCell>
+                {rows.map((row) => (
+                  <TableRow key={row.qr!.id}>
+                    <TableCell className="font-medium">
+                      {row.qr!.name}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="muted">{r.qr!.type}</Badge>
+                      <Badge variant="muted">{row.qr!.type}</Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      /r/{r.qr!.short_code}
+                      /r/{row.qr!.short_code}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {r.count}
+                      {row.count}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -174,23 +177,33 @@ export default async function ReportsPage({
                 <TableRow>
                   <TableHead>QR Code</TableHead>
                   <TableHead>Device</TableHead>
+                  <TableHead>OS</TableHead>
                   <TableHead>Browser</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Scanned At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allScans.slice(0, 100).map((s, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-medium">
-                      {qrMap.get(s.qr_code_id)?.name ?? "—"}
-                    </TableCell>
-                    <TableCell>{s.device ?? "—"}</TableCell>
-                    <TableCell>{s.browser ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(s.scanned_at)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {allScans.slice(0, 100).map((scan, index) => {
+                  const location = [scan.city, scan.region, scan.country]
+                    .filter(Boolean)
+                    .join(", ");
+
+                  return (
+                    <TableRow key={`${scan.qr_code_id}-${index}`}>
+                      <TableCell className="font-medium">
+                        {qrMap.get(scan.qr_code_id)?.name ?? "-"}
+                      </TableCell>
+                      <TableCell>{scan.device ?? "-"}</TableCell>
+                      <TableCell>{scan.os ?? "-"}</TableCell>
+                      <TableCell>{scan.browser ?? "-"}</TableCell>
+                      <TableCell>{location || "-"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(scan.scanned_at)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

@@ -8,6 +8,10 @@ type ScanRow = {
   scanned_at: string;
   browser: string | null;
   device: string | null;
+  os: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
   ip_address: string | null;
   referrer: string | null;
   qr_codes: { name: string; short_code: string; type: string } | null;
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from("qr_scans")
     .select(
-      "scanned_at, browser, device, ip_address, referrer, qr_codes(name, short_code, type)",
+      "scanned_at, browser, device, os, country, region, city, ip_address, referrer, qr_codes(name, short_code, type)",
     )
     .gte("scanned_at", start)
     .order("scanned_at", { ascending: false });
@@ -48,7 +52,11 @@ export async function GET(request: NextRequest) {
       "Short Code",
       "Type",
       "Device",
+      "OS",
       "Browser",
+      "Country",
+      "Region",
+      "City",
       "IP Address",
       "Referrer",
       "Scanned At",
@@ -58,7 +66,11 @@ export async function GET(request: NextRequest) {
       r.qr_codes?.short_code ?? "",
       r.qr_codes?.type ?? "",
       r.device ?? "",
+      r.os ?? "",
       r.browser ?? "",
+      r.country ?? "",
+      r.region ?? "",
+      r.city ?? "",
       r.ip_address ?? "",
       r.referrer ?? "",
       r.scanned_at,
