@@ -75,8 +75,32 @@ export interface QrCode {
   event_end: string | null;
   event_location: string | null;
   status: boolean;
+  campaign: string | null;
+  deleted_at: string | null;
+  qr_design: QrDesign | null;
   created_at: string;
   updated_at: string;
+}
+
+export type QrDotStyle =
+  | "square"
+  | "rounded"
+  | "dots"
+  | "classy"
+  | "classy-rounded"
+  | "extra-rounded";
+
+export type QrCornerStyle = "square" | "rounded" | "dot" | "extra-rounded";
+
+export interface QrDesign {
+  /** Foreground / dots color. */
+  dark?: string;
+  /** Background color. */
+  light?: string;
+  dotsType?: QrDotStyle;
+  cornersType?: QrCornerStyle;
+  logoUrl?: string | null;
+  margin?: number;
 }
 
 export interface QrScan {
@@ -88,6 +112,10 @@ export interface QrScan {
   country: string | null;
   region: string | null;
   city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  location_source: "ip" | "gps" | null;
   user_agent: string | null;
   ip_address: string | null;
   referrer: string | null;

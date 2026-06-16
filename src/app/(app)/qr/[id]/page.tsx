@@ -23,13 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { QrDisplay } from "@/components/qr-display";
+import { QrDesigner } from "@/components/qr-designer";
+import { QrTypeBadge } from "@/components/qr-type-badge";
 import { QrForm } from "../qr-form";
 import { LinkHubManager } from "../link-hub-manager";
 import { DeleteQrButton } from "../delete-qr-button";
 import { updateQr } from "../actions";
-import { appUrl, formatDate } from "@/lib/utils";
-import { QR_TYPE_LABELS, type LinkHubItem, type QrCode, type QrType } from "@/lib/types";
+import { appUrl, formatDate, malaysiaDayStartISO } from "@/lib/utils";
+import { type LinkHubItem, type QrCode } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,6 @@ function tally(rows: { [key: string]: string | null }[], key: string) {
     map.set(value, (map.get(value) ?? 0) + 1);
   });
   return Array.from(map, ([label, value]) => ({ label, value }));
-}
-
-function startOfTodayISO() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
 }
 
 export default async function QrDetailPage({
@@ -85,7 +80,7 @@ export default async function QrDetailPage({
   const allScans = scans ?? [];
   const scanCount = allScans.length;
   const scansToday = allScans.filter(
-    (scan) => scan.scanned_at >= startOfTodayISO(),
+    (scan) => scan.scanned_at >= malaysiaDayStartISO(),
   ).length;
   const lastScan = allScans[0]?.scanned_at ?? null;
   const byDevice = tally(allScans, "device");
@@ -121,9 +116,7 @@ export default async function QrDetailPage({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Edit details</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge variant="muted">
-                    {QR_TYPE_LABELS[qrCode.type as QrType]}
-                  </Badge>
+                  <QrTypeBadge type={qrCode.type} />
                   {qrCode.status ? (
                     <Badge variant="success">Active</Badge>
                   ) : (
@@ -272,11 +265,18 @@ export default async function QrDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">QR code</CardTitle>
-              <CardDescription>Download &amp; print this image.</CardDescription>
+              <CardTitle className="text-lg">QR code &amp; design</CardTitle>
+              <CardDescription>
+                Customize colors, style and logo, then download &amp; print.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <QrDisplay url={shortUrl} fileName={qrCode.short_code} />
+              <QrDesigner
+                url={shortUrl}
+                fileName={qrCode.short_code}
+                qrId={qrCode.id}
+                initialDesign={qrCode.qr_design}
+              />
             </CardContent>
           </Card>
 

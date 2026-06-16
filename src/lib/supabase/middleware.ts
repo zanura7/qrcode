@@ -3,7 +3,16 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-const PUBLIC_PREFIXES = ["/r/", "/hub/", "/login", "/_next", "/favicon", "/auth"];
+const PUBLIC_PREFIXES = [
+  "/r/",
+  "/hub/",
+  "/content/",
+  "/api/scan-geo",
+  "/login",
+  "/_next",
+  "/favicon",
+  "/auth",
+];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

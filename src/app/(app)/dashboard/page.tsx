@@ -10,29 +10,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { QR_TYPE_LABELS, type QrType } from "@/lib/types";
+import { type QrType } from "@/lib/types";
+import { QrTypeBadge } from "@/components/qr-type-badge";
+import { malaysiaDayStartISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-function startOfTodayISO() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
   const [{ count: totalQr }, { count: totalScan }, { count: scanToday }] =
     await Promise.all([
-      supabase.from("qr_codes").select("*", { count: "exact", head: true }),
+      supabase
+        .from("qr_codes")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null),
       supabase.from("qr_scans").select("*", { count: "exact", head: true }),
       supabase
         .from("qr_scans")
         .select("*", { count: "exact", head: true })
-        .gte("scanned_at", startOfTodayISO()),
+        .gte("scanned_at", malaysiaDayStartISO()),
     ]);
 
   // Top QR codes by scan count
@@ -45,6 +43,7 @@ export default async function DashboardPage() {
   const { data: qrCodes } = await supabase
     .from("qr_codes")
     .select("id, name, type, short_code")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   const top = (qrCodes ?? [])
@@ -117,9 +116,7 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="muted">
-                      {QR_TYPE_LABELS[q.type as QrType]}
-                    </Badge>
+                    <QrTypeBadge type={q.type as QrType} />
                     <span className="text-sm font-semibold tabular-nums">
                       {q.scans} scans
                     </span>

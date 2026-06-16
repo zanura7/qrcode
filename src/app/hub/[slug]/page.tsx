@@ -52,6 +52,7 @@ export default async function HubPage({
     .select("*")
     .eq("short_code", slug)
     .eq("type", "link_hub")
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!qr || !(qr as QrCode).status) notFound();

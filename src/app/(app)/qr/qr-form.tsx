@@ -7,60 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { QrTypePicker } from "./qr-type-picker";
 import type { ActionState } from "./actions";
-import {
-  QR_TYPE_LABELS,
-  URL_QR_TYPES,
-  type QrCode,
-  type QrType,
-} from "@/lib/types";
-
-const BASIC_TYPES: QrType[] = [
-  "url",
-  "text",
-  "map",
-  "wifi",
-  "whatsapp",
-  "phone",
-  "sms",
-  "email",
-  "vcard",
-  "calendar",
-  "link_hub",
-  "custom_url",
-];
-
-const SOCIAL_TYPES: QrType[] = [
-  "telegram",
-  "wechat",
-  "line",
-  "kakaotalk",
-  "tiktok",
-  "instagram",
-  "facebook",
-  "youtube",
-  "linkedin",
-  "x",
-  "snapchat",
-  "reddit",
-  "spotify",
-];
-
-const BUSINESS_TYPES: QrType[] = [
-  "google_forms",
-  "google_review",
-  "google_docs",
-  "google_sheets",
-  "office_365",
-  "paypal",
-  "venmo",
-  "upi",
-  "crypto_payment",
-  "amazon",
-  "etsy",
-  "booking",
-  "online_booking",
-];
+import { URL_QR_TYPES, type QrCode, type QrType } from "@/lib/types";
 
 const FILE_TYPES: QrType[] = [
   "pdf",
@@ -130,42 +79,22 @@ export function QrForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="type">Type</Label>
-        <Select
-          id="type"
-          name="type"
-          value={type}
-          onChange={(event) => setType(event.target.value as QrType)}
-        >
-          <optgroup label="Basic">
-            {BASIC_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {QR_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Social and media">
-            {SOCIAL_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {QR_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Business and payment">
-            {BUSINESS_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {QR_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Files">
-            {FILE_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {QR_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </optgroup>
-        </Select>
+        <Label htmlFor="campaign">Campaign (optional)</Label>
+        <Input
+          id="campaign"
+          name="campaign"
+          placeholder="e.g. Ramadan 2026"
+          defaultValue={initial?.campaign ?? ""}
+        />
+        <p className="text-xs text-muted-foreground">
+          Group QR codes so you can filter analytics by campaign.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Type</Label>
+        <input type="hidden" name="type" value={type} />
+        <QrTypePicker value={type} onChange={setType} />
       </div>
 
       {usesTargetUrl && (

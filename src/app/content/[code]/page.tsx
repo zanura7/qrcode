@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { Calendar, Contact, Copy, FileText, Wifi } from "lucide-react";
+import { Copy } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QR_TYPE_LABELS, type QrCode } from "@/lib/types";
+import { QrTypeIconTile } from "@/components/qr-type-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ function formatDateTime(value: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Kuala_Lumpur",
   });
 }
 
@@ -58,28 +60,18 @@ export default async function ContentPage({
     .from("qr_codes")
     .select("*")
     .eq("short_code", code)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (!data || !data.status) notFound();
   const qr = data as QrCode;
-
-  const Icon =
-    qr.type === "wifi"
-      ? Wifi
-      : qr.type === "vcard"
-        ? Contact
-        : qr.type === "calendar"
-          ? Calendar
-          : FileText;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-sm">
         <header className="border-b border-slate-100 px-6 py-5">
           <div className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <Icon className="size-5" />
-            </span>
+            <QrTypeIconTile type={qr.type} />
             <div className="min-w-0">
               <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
                 {QR_TYPE_LABELS[qr.type]}

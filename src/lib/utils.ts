@@ -18,6 +18,21 @@ export function generateShortCode(length = 6): string {
   return out;
 }
 
+/** Malaysia has no DST, so a fixed Asia/Kuala_Lumpur (UTC+8) is always correct. */
+export const APP_TIME_ZONE = "Asia/Kuala_Lumpur";
+const MYT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * Midnight (Malaysia time, UTC+8) `daysAgo` days before today, returned as a
+ * UTC ISO string suitable for comparing against `timestamptz` columns.
+ */
+export function malaysiaDayStartISO(daysAgo = 0): string {
+  const myt = new Date(Date.now() + MYT_OFFSET_MS);
+  myt.setUTCHours(0, 0, 0, 0);
+  myt.setUTCDate(myt.getUTCDate() - daysAgo);
+  return new Date(myt.getTime() - MYT_OFFSET_MS).toISOString();
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -27,6 +42,7 @@ export function formatDate(value: string | Date | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
   });
 }
 

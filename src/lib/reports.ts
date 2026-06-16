@@ -1,3 +1,5 @@
+import { malaysiaDayStartISO } from "@/lib/utils";
+
 export type ReportRange = "daily" | "weekly" | "monthly";
 
 export const REPORT_RANGES: { value: ReportRange; label: string }[] = [
@@ -11,18 +13,11 @@ export function normalizeRange(value: string | undefined): ReportRange {
   return "daily";
 }
 
-/** Start of the reporting window (UTC ISO string). */
+/** Start of the reporting window (UTC ISO string, aligned to Malaysia time). */
 export function rangeStart(range: ReportRange): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (range === "daily") {
-    // today
-  } else if (range === "weekly") {
-    d.setDate(d.getDate() - 6); // last 7 days inclusive
-  } else {
-    d.setDate(d.getDate() - 29); // last 30 days inclusive
-  }
-  return d.toISOString();
+  if (range === "weekly") return malaysiaDayStartISO(6); // last 7 days inclusive
+  if (range === "monthly") return malaysiaDayStartISO(29); // last 30 days inclusive
+  return malaysiaDayStartISO(); // today
 }
 
 export function rangeLabel(range: ReportRange): string {

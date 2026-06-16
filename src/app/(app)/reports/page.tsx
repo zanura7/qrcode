@@ -49,7 +49,8 @@ export default async function ReportsPage({
 
   const { data: qrCodes } = await supabase
     .from("qr_codes")
-    .select("id, name, short_code, type");
+    .select("id, name, short_code, type")
+    .is("deleted_at", null);
 
   const allScans = scans ?? [];
   const qrMap = new Map((qrCodes ?? []).map((q) => [q.id, q]));

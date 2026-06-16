@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, QrCode as QrCodeIcon, Search } from "lucide-react";
+import { Plus, QrCode as QrCodeIcon, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { QrRowActions } from "./qr-row-actions";
+import { QrTypeBadge } from "@/components/qr-type-badge";
 import { formatDate } from "@/lib/utils";
 import {
   QR_TYPE_LABELS,
@@ -59,7 +60,13 @@ export default async function QrListPage({
   const { data: qrCodesData } = await supabase
     .from("qr_codes")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
+
+  const { count: trashCount } = await supabase
+    .from("qr_codes")
+    .select("*", { count: "exact", head: true })
+    .not("deleted_at", "is", null);
 
   const qrCodes = (qrCodesData ?? []) as QrCode[];
   const filteredQrCodes = qrCodes.filter((qr) => {
@@ -98,6 +105,12 @@ export default async function QrListPage({
   return (
     <div>
       <PageHeader title="QR Codes" description="Search, manage, and monitor all QR codes.">
+        <Button asChild variant="outline">
+          <Link href="/qr/trash">
+            <Trash2 className="size-4" />
+            Recycle Bin{trashCount ? ` (${trashCount})` : ""}
+          </Link>
+        </Button>
         <Button asChild>
           <Link href="/qr/new">
             <Plus className="size-4" />
@@ -189,9 +202,7 @@ export default async function QrListPage({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="muted">
-                      {QR_TYPE_LABELS[qr.type as QrType]}
-                    </Badge>
+                    <QrTypeBadge type={qr.type as QrType} />
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     /r/{qr.short_code}

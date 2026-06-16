@@ -46,6 +46,7 @@ async function uniqueShortCode(
 function parseForm(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const type = String(formData.get("type") || "") as QrType;
+  const campaign = String(formData.get("campaign") || "").trim() || null;
   const target_url = String(formData.get("target_url") || "").trim() || null;
   const whatsapp_number =
     String(formData.get("whatsapp_number") || "").replace(/[^\d+]/g, "") || null;
@@ -77,6 +78,7 @@ function parseForm(formData: FormData) {
   return {
     name,
     type,
+    campaign,
     target_url,
     whatsapp_number,
     whatsapp_message,
@@ -253,12 +255,75 @@ export async function toggleStatus(id: string, status: boolean) {
   revalidatePath(`/qr/${id}`);
 }
 
+/** Move a QR code to the recycle bin (soft delete). Recoverable. */
 export async function deleteQr(id: string) {
   const supabase = await createClient();
-  await supabase.from("qr_codes").delete().eq("id", id);
+  await supabase
+    .from("qr_codes")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
   revalidatePath("/qr");
+  revalidatePath("/qr/trash");
   revalidatePath("/dashboard");
   redirect("/qr");
+}
+
+/** Restore a QR code from the recycle bin. */
+export async function restoreQr(id: string) {
+  const supabase = await createClient();
+  await supabase.from("qr_codes").update({ deleted_at: null }).eq("id", id);
+  revalidatePath("/qr");
+  revalidatePath("/qr/trash");
+  revalidatePath("/dashboard");
+}
+
+/** Permanently delete a QR code (and its scans, via cascade). Irreversible. */
+export async function purgeQr(id: string) {
+  const supabase = await createClient();
+  await supabase.from("qr_codes").delete().eq("id", id);
+  revalidatePath("/qr/trash");
+  revalidatePath("/dashboard");
+}
+
+// ---------- QR design ----------
+
+export async function updateQrDesign(
+  id: string,
+  design: Record<string, unknown>,
+): Promise<ActionState> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("qr_codes")
+    .update({ qr_design: design })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath(`/qr/${id}`);
+  return {};
+}
+
+/** Upload a center logo image; returns its public URL. */
+export async function uploadQrLogo(
+  formData: FormData,
+): Promise<{ url?: string; error?: string }> {
+  const upload = formData.get("logo");
+  if (!isUploadFile(upload)) return { error: "No image selected." };
+  if (upload.size > 2 * 1024 * 1024)
+    return { error: "Logo must be 2 MB or smaller." };
+  if (!upload.type.startsWith("image/"))
+    return { error: "Logo must be an image file." };
+
+  const admin = createAdminClient();
+  const path = `logos/${crypto.randomUUID()}-${safeFileName(upload.name)}`;
+  const { error } = await admin.storage
+    .from(QR_FILES_BUCKET)
+    .upload(path, Buffer.from(await upload.arrayBuffer()), {
+      contentType: upload.type || "image/png",
+      upsert: false,
+    });
+  if (error) return { error: error.message };
+
+  const { data } = admin.storage.from(QR_FILES_BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl };
 }
 
 // ---------- Link Hub items ----------
